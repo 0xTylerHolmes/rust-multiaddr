@@ -14,6 +14,7 @@ pub enum Error {
     ParsingError(Box<dyn error::Error + Send + Sync>),
     UnknownProtocolId(u32),
     UnknownProtocolString(String),
+    InvalidIp6Zone,
 }
 
 impl fmt::Display for Error {
@@ -28,6 +29,7 @@ impl fmt::Display for Error {
             Error::UnknownProtocolString(string) => {
                 write!(f, "unknown protocol string: {string}")
             }
+            Error::InvalidIp6Zone => f.write_str("invalid ip6zone"),
         }
     }
 }

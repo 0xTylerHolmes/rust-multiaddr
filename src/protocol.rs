@@ -26,6 +26,7 @@ const HTTP: u32 = 480;
 const HTTPS: u32 = 443;
 const IP4: u32 = 4;
 const IP6: u32 = 41;
+const IP6ZONE: u32 = 42;
 const P2P_WEBRTC_DIRECT: u32 = 276;
 const P2P_WEBRTC_STAR: u32 = 275;
 const WEBRTC_DIRECT: u32 = 280;
@@ -90,6 +91,7 @@ pub enum Protocol<'a> {
     Https,
     Ip4(Ipv4Addr),
     Ip6(Ipv6Addr),
+    Ip6Zone(Cow<'a, str>),
     P2pWebRtcDirect,
     P2pWebRtcStar,
     WebRTCDirect,
@@ -149,6 +151,13 @@ impl<'a> Protocol<'a> {
             "ip6" => {
                 let s = iter.next().ok_or(Error::InvalidProtocolString)?;
                 Ok(Protocol::Ip6(Ipv6Addr::from_str(s)?))
+            }
+            "ip6zone" => {
+                let s = iter.next().ok_or(Error::InvalidProtocolString)?;
+                if s.len() == 0 {
+                    return Err(Error::InvalidIp6Zone);
+                }
+                Ok(Protocol::Ip6Zone(Cow::Borrowed(s)))
             }
             "dns" => {
                 let s = iter.next().ok_or(Error::InvalidProtocolString)?;
@@ -292,6 +301,15 @@ impl<'a> Protocol<'a> {
 
                 Ok((Protocol::Ip6(addr), rest))
             }
+            IP6ZONE => {
+                let (n, input) = decode::usize(input)?;
+                let (data, rest) = split_at(n, input)?;
+                let str = str::from_utf8(data)?;
+                if str.contains('/') || str.len() == 0 {
+                    return Err(Error::InvalidIp6Zone);
+                }
+                Ok((Protocol::Ip6Zone(Cow::Borrowed(str)), rest))
+            }
             P2P_WEBRTC_DIRECT => Ok((Protocol::P2pWebRtcDirect, input)),
             P2P_WEBRTC_STAR => Ok((Protocol::P2pWebRtcStar, input)),
             WEBRTC_DIRECT => Ok((Protocol::WebRTCDirect, input)),
@@ -394,6 +412,12 @@ impl<'a> Protocol<'a> {
                 for &segment in &addr.segments() {
                     w.write_u16::<BigEndian>(segment)?
                 }
+            }
+            Protocol::Ip6Zone(s) => {
+                w.write_all(encode::u32(IP6ZONE, &mut buf))?;
+                let bytes = s.as_bytes();
+                w.write_all(encode::usize(bytes.len(), &mut encode::usize_buffer()))?;
+                w.write_all(bytes)?
             }
             Protocol::Tcp(port) => {
                 w.write_all(encode::u32(TCP, &mut buf))?;
@@ -512,6 +536,7 @@ impl<'a> Protocol<'a> {
             Https => Https,
             Ip4(a) => Ip4(a),
             Ip6(a) => Ip6(a),
+            Ip6Zone(cow) => Ip6Zone(Cow::Owned(cow.into_owned())),
             P2pWebRtcDirect => P2pWebRtcDirect,
             P2pWebRtcStar => P2pWebRtcStar,
             WebRTCDirect => WebRTCDirect,
@@ -550,6 +575,7 @@ impl<'a> Protocol<'a> {
             Https => "https",
             Ip4(_) => "ip4",
             Ip6(_) => "ip6",
+            Ip6Zone(_) => "ip6zone",
             P2pWebRtcDirect => "p2p-webrtc-direct",
             P2pWebRtcStar => "p2p-webrtc-star",
             WebRTCDirect => "webrtc-direct",
@@ -591,6 +617,7 @@ impl<'a> fmt::Display for Protocol<'a> {
             Dnsaddr(s) => write!(f, "/{s}"),
             Ip4(addr) => write!(f, "/{addr}"),
             Ip6(addr) => write!(f, "/{addr}"),
+            Ip6Zone(s) => write!(f, "/{s}"),
             Certhash(hash) => write!(
                 f,
                 "/{}",

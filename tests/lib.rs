@@ -405,6 +405,46 @@ fn construct_success() {
             Certhash(Multihash::from_bytes(&decoded).unwrap()),
         ],
     );
+
+    ma_valid(
+        "/ip6zone/x/ip6/fe80::1",
+        "2A017829FE800000000000000000000000000001",
+        vec![
+            Ip6Zone(Cow::Borrowed("x")),Ip6("fe80::1".parse().unwrap())],
+    );
+
+    ma_valid(
+        "/ip6zone/x%y/ip6/fe80::1",
+        "2A0378257929FE800000000000000000000000000001",
+        vec![Ip6Zone(Cow::Borrowed("x%y")),Ip6("fe80::1".parse().unwrap())],
+    );
+
+    ma_valid(
+        "/ip6zone/x%y/ip6/::",
+        "2A037825792900000000000000000000000000000000",
+        vec![Ip6Zone(Cow::Borrowed("x%y")),Ip6("::".parse().unwrap())],
+    );
+
+    ma_valid(
+        "/ip6zone/x/ip6/fe80::1/udp/1234/quic",
+        "2A017829FE800000000000000000000000000001910204D2CC03",
+        vec![
+            Ip6Zone(Cow::Borrowed("x")),
+            Ip6("fe80::1".parse().unwrap()),
+            Udp(1234),
+            Quic
+        ],
+    );
+
+    ma_valid(
+        "/ip6zone/x/ip6/fe80::1/udp/1234/quic-v1",
+        "2A017829FE800000000000000000000000000001910204D2CD03",
+        vec![Ip6Zone(Cow::Borrowed("x")),
+             Ip6("fe80::1".parse().unwrap()),
+             Udp(1234),
+             QuicV1
+        ],
+    );
 }
 
 #[test]
@@ -414,6 +454,9 @@ fn construct_fail() {
         "/ip4/::1",
         "/ip4/fdpsofodsajfdoisa",
         "/ip6",
+        "/ip6zone",
+        "/ip6zone/",
+        "/ip6zone//ip6/fe80::1",
         "/udp",
         "/tcp",
         "/sctp",
